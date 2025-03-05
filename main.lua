@@ -34,21 +34,30 @@ function love.load()
     -- Clock:
     mainclock = {}
 
+    game = {}
+    game.state = "config"
+
     -- Creating the 'board':
     boardX    = 4
-    boardY    = 4
+    boardY    = 5
     board = createBoard(boardX, boardY)
+    boardPos = {x=80, y=128}
 
     cardsPicked = {}
-    score = 0
+
 
     -- Loading assets:
     midFont = love.graphics.newFont("assets/fonts/04B_03_.TTF", 64)
+    background = love.graphics.newImage("assets/img/background.png")
+    cursor = love.graphics.newImage("assets/img/cursor.png")
+    heartworks = love.graphics.newImage("assets/img/heartworks.png")
+    configButton = love.graphics.newImage("assets/img/conf.png")
 
     -- Setting graphics:
     love.graphics.setFont(midFont)
     love.graphics.setColor(0, 0, 0)
     love.graphics.setBackgroundColor(1, 1, 1)
+    love.mouse.setVisible(false)
 
     -- Config:
     configurations = {
@@ -57,54 +66,59 @@ function love.load()
 end
 
 function love.update(dt)
-    c.runClock(mainclock, dt)
+    if game.state == "playing" then
+        c.runClock(mainclock, dt)
 
-    if #cardsPicked == 2 then
-        if cardsPicked[1].content == cardsPicked[2].content then
-            score = score + 5
-            local x1, y1 = cardsPicked[1].x, cardsPicked[1].y
-            local x2, y2 = cardsPicked[2].x, cardsPicked[2].y
-            c.addTimer(mainclock, 0.25, function()
-                board[x1][y1].active = false
-                board[x2][y2].active = false
-            end, "atEnd", "waitingForResults")
-        else
-            score = score - 1
-            local x1, y1 = cardsPicked[1].x, cardsPicked[1].y
-            local x2, y2 = cardsPicked[2].x, cardsPicked[2].y
-            c.addTimer(mainclock, 0.25, function()
-                board[x1][y1].clicked = false
-                board[x2][y2].clicked = false
-            end, "atEnd", "waitingForResults")
+        if #cardsPicked == 2 then
+            if cardsPicked[1].content == cardsPicked[2].content then
+                local x1, y1 = cardsPicked[1].x, cardsPicked[1].y
+                local x2, y2 = cardsPicked[2].x, cardsPicked[2].y
+                c.addTimer(mainclock, 0.25, function()
+                    board[x1][y1].active = false
+                    board[x2][y2].active = false
+                end, "atEnd", "waitingForResults")
+            else
+                local x1, y1 = cardsPicked[1].x, cardsPicked[1].y
+                local x2, y2 = cardsPicked[2].x, cardsPicked[2].y
+                c.addTimer(mainclock, 0.25, function()
+                    board[x1][y1].clicked = false
+                    board[x2][y2].clicked = false
+                end, "atEnd", "waitingForResults")
+            end
+            cardsPicked = {}
         end
-        cardsPicked = {}
     end
 end
 
 function love.draw()
-    love.graphics.setColor(0, 0, 0)
-    love.graphics.rectangle("fill", 80-configurations.borderThiccness, 80-configurations.borderThiccness, 80*boardX+configurations.borderThiccness*2, 80*boardY+configurations.borderThiccness*2)
-    love.graphics.setColor(1, 1, 1)
+    if game.state == "playing" then
+        love.graphics.draw(background, 0, 0)
 
-    for x, row in pairs(board) do
-        for y, card in pairs(row) do
-            if card.active and card.clicked then
-                love.graphics.print(card.content, x*80+25, y*80+14)
-            elseif card.active and not card.clicked then
-                local color = u.boolToInteger((y+x)%2 == 0, {155/255, 173/255, 183/255}, {1, 1, 1})
+        love.graphics.setColor(50/256, 50/256, 50/256)
+        love.graphics.rectangle("fill", boardPos.x-configurations.borderThiccness, boardPos.y-configurations.borderThiccness, 80*boardX+configurations.borderThiccness*2, 80*boardY+configurations.borderThiccness*2)
+        love.graphics.setColor(1, 1, 1)
 
-                love.graphics.setColor(u.unpackLove(color))
-                love.graphics.rectangle("fill", x*80, y*80, 80, 80)
-                love.graphics.setColor(1, 1, 1)
-            else
-                love.graphics.setColor(0.5, 0.5, 0.5)
-                love.graphics.rectangle("fill", x*80, y*80, 80, 80)
-                love.graphics.setColor(1, 1, 1)
+        for x, row in pairs(board) do
+            for y, card in pairs(row) do
+                if card.active and card.clicked then
+                    love.graphics.print(card.content, boardPos.x + (x - 1)*80+25, boardPos.y + (y - 1)*80+14)
+                elseif card.active and not card.clicked then
+                    local color = u.boolToInteger(((y - 1)+(x - 1))%2 == 0, {155/255, 173/255, 183/255}, {1, 1, 1})
+
+                    love.graphics.setColor(u.unpackLove(color))
+                    love.graphics.rectangle("fill", boardPos.x + (x - 1)*80, boardPos.y + (y - 1)*80, 80, 80)
+                    love.graphics.setColor(1, 1, 1)
+                end
             end
         end
+        love.graphics.draw(configButton, love.graphics.getWidth() - 48, 16)
+    elseif game.state == "config" then
+        -- Needs to be done :)
     end
 
-    love.graphics.print(score, 16, 16)
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.draw(heartworks, 16, love.graphics.getHeight() - 30)
+    love.graphics.draw(cursor, u.roundTo(love.mouse.getX(), 8), u.roundTo(love.mouse.getY(), 8))
 end
 
 function love.keypressed(key)
@@ -117,13 +131,15 @@ function love.keypressed(key)
 end
 
 function love.mousepressed(x, y)
-    -- Checking if mouse clicked in any of the cards
-    if not mainclock.waitingForResults then
-        for _x, row in pairs(board) do
-            for _y, card in pairs(row) do
-                if (card.clicked == false) and (card.active  == true) and (x >= _x*80 and x < _x*80+80) and (y >= _y*80 and y < _y*80+80) then
-                    table.insert(cardsPicked, {content=card.content, x=_x, y=_y})
-                    card.clicked = true
+    if game.state == "playing" then
+        -- Checking if mouse clicked in any of the cards
+        if not mainclock.waitingForResults then
+            for _x, row in pairs(board) do
+                for _y, card in pairs(row) do
+                    if (card.clicked == false) and (card.active  == true) and (x >= boardPos.x + (_x-1)*80 and x < boardPos.x + (_x-1)*80+80) and (y >= boardPos.y + (_y-1)*80 and y < boardPos.y + (_y-1)*80+80) then
+                        table.insert(cardsPicked, {content=card.content, x=_x, y=_y})
+                        card.clicked = true
+                    end
                 end
             end
         end
