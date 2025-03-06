@@ -35,11 +35,16 @@ function love.load()
     mainclock = {}
 
     game = {}
-    game.state = "config"
+    game.state = "playing"
+
+    -- Errors:
+    errors = {
+        invalidBoardSize = false
+    }
 
     -- Creating the 'board':
     boardX    = 4
-    boardY    = 5
+    boardY    = 4
     board = createBoard(boardX, boardY)
     boardPos = {x=80, y=128}
 
@@ -47,17 +52,21 @@ function love.load()
 
 
     -- Loading assets:
-    midFont = love.graphics.newFont("assets/fonts/04B_03_.TTF", 64)
+    lilFont = love.graphics.newFont("assets/fonts/04B_03_.TTF", 16)
+    midFont = love.graphics.newFont("assets/fonts/04B_03_.TTF", 32)
     background = love.graphics.newImage("assets/img/background.png")
     cursor = love.graphics.newImage("assets/img/cursor.png")
     heartworks = love.graphics.newImage("assets/img/heartworks.png")
     configButton = love.graphics.newImage("assets/img/conf.png")
+    errInvalidBoardSize = love.graphics.newImage("assets/img/err_invalidBoardSize.png")
 
     -- Setting graphics:
-    love.graphics.setFont(midFont)
+    love.graphics.setFont(lilFont)
     love.graphics.setColor(0, 0, 0)
     love.graphics.setBackgroundColor(1, 1, 1)
     love.mouse.setVisible(false)
+
+    -- GUI:
 
     -- Config:
     configurations = {
@@ -66,7 +75,13 @@ function love.load()
 end
 
 function love.update(dt)
-    if game.state == "playing" then
+    if     game.state == "playing" then
+        if (boardX * boardY) % 2 ~= 0 or boardX * boardY < 0 then
+            errors.invalidBoardSize = true
+        else
+            errors.invalidBoardSize = false
+        end
+
         c.runClock(mainclock, dt)
 
         if #cardsPicked == 2 then
@@ -87,6 +102,7 @@ function love.update(dt)
             end
             cardsPicked = {}
         end
+    elseif game.state == "menu" then
     end
 end
 
@@ -112,8 +128,12 @@ function love.draw()
             end
         end
         love.graphics.draw(configButton, love.graphics.getWidth() - 48, 16)
-    elseif game.state == "config" then
-        -- Needs to be done :)
+    end
+
+    if errors.invalidBoardSize then
+        love.graphics.draw(errInvalidBoardSize, 0, 0)
+        love.graphics.setColor(231/255, 74/255, 153/255)
+        love.graphics.print("Invalid Board Size - game may crash", 24, 1)
     end
 
     love.graphics.setColor(1, 1, 1)
@@ -122,11 +142,18 @@ function love.draw()
 end
 
 function love.keypressed(key)
-    if key == "c" then
+    if key == "up" or key == "w" then
+        boardY = boardY - 1
         board = createBoard(boardX, boardY)
-    end
-    if key == "o" then
-        cardsPicked = {}
+    elseif key == "down" or key == "s" then
+        boardY = boardY + 1
+        board = createBoard(boardX, boardY)
+    elseif key == "right" or key == "d" then
+        boardX = boardX + 1
+        board = createBoard(boardX, boardY)
+    elseif key == "left" or key == "a" then
+        boardX = boardX - 1
+        board = createBoard(boardX, boardY)
     end
 end
 
